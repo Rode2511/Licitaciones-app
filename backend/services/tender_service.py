@@ -85,10 +85,22 @@ def send_tender_service(
 
 
     send_email(
-        tender.client.email,
-        "Licitación enviada",
-        f"La licitación {tender.title} fue enviada correctamente",
-        tender.proposal_url
+    tender.client.email,
+    "Licitación enviada",
+    f"""
+    La licitación <b>{tender.title}</b> fue enviada correctamente.
+
+    <br>
+
+    Presupuesto:
+    ${tender.budget}
+
+    <br>
+
+    Fecha límite:
+    {tender.deadline}
+    """,
+    tender.proposal_url
     )
 
 

@@ -40,25 +40,17 @@ def create_tender(
 ):
 
     new_tender = models.Tender(
-
         client_id=tender.client_id,
-
         title=tender.title,
-
         description=tender.description,
-
         budget=tender.budget,
-
         deadline=tender.deadline,
-
         status="borrador"
     )
 
 
     db.add(new_tender)
-
     db.commit()
-
     db.refresh(new_tender)
 
 
@@ -66,7 +58,7 @@ def create_tender(
 
 
 
-# Obtener todas las licitaciones
+# Obtener licitaciones
 @router.get("/", response_model=list[schemas.TenderResponse])
 def get_tenders(
     db: Session = Depends(get_db),
@@ -79,7 +71,7 @@ def get_tenders(
 
 
 
-# Obtener detalle de una licitación
+# Obtener detalle
 @router.get(
     "/{tender_id}",
     response_model=schemas.TenderDetailResponse
@@ -98,7 +90,6 @@ def get_tender_detail(
 
 
     if not tender:
-
         raise HTTPException(
             status_code=404,
             detail="Licitación no encontrada"
@@ -109,7 +100,7 @@ def get_tender_detail(
 
 
 
-# Agregar productos a licitación
+# Agregar productos
 @router.post("/{tender_id}/products")
 def add_product_to_tender(
     tender_id: int,
@@ -126,10 +117,17 @@ def add_product_to_tender(
 
 
     if not tender:
-
         raise HTTPException(
             status_code=404,
             detail="Licitación no encontrada"
+        )
+
+
+    if tender.status != "borrador":
+
+        raise HTTPException(
+            status_code=400,
+            detail="No se pueden modificar productos en este estado"
         )
 
 
@@ -139,16 +137,13 @@ def add_product_to_tender(
 
 
     if not product:
-
         raise HTTPException(
             status_code=404,
             detail="Producto no encontrado"
         )
 
 
-    total_actual = (
-        item.quantity * item.price
-    )
+    total_actual = item.quantity * item.price
 
 
     if total_actual > tender.budget:
@@ -160,32 +155,24 @@ def add_product_to_tender(
 
 
     connection = models.tender_products.insert().values(
-
         tender_id=tender_id,
-
         product_id=item.product_id,
-
         quantity=item.quantity,
-
         price=item.price
-
     )
 
 
     db.execute(connection)
-
     db.commit()
 
 
     return {
-
         "mensaje": "Producto agregado a la licitación"
-
     }
 
 
 
-# Cambiar estado de licitación
+# Cambiar estado
 @router.patch("/{tender_id}/status")
 def change_status(
     tender_id: int,
@@ -202,7 +189,6 @@ def change_status(
 
 
     if not tender:
-
         raise HTTPException(
             status_code=404,
             detail="Licitación no encontrada"
@@ -214,9 +200,7 @@ def change_status(
 
     valid_transitions = {
 
-        "borrador": [
-            "activa"
-        ],
+        "borrador": ["activa"],
 
         "activa": [
             "perdida",
@@ -230,56 +214,39 @@ def change_status(
         "por_cobrar": [
             "cobrada"
         ]
-
     }
-
 
 
     if status.new_status not in valid_transitions.get(old_status, []):
 
         raise HTTPException(
-
             status_code=400,
-
             detail=f"No se puede cambiar de {old_status} a {status.new_status}"
-
         )
-
 
 
     tender.status = status.new_status
 
 
-
     history = models.StatusHistory(
-
         tender_id=tender.id,
-
         old_status=old_status,
-
-        new_status=status.new_status
-
+        new_status=status.new_status,
+        user_id=current_user.id
     )
 
 
     db.add(history)
 
     db.commit()
-
     db.refresh(tender)
 
 
-
     return {
-
         "mensaje": "Estado actualizado",
-
         "estado_anterior": old_status,
-
         "estado_nuevo": tender.status
-
     }
-
 
 
 
@@ -294,11 +261,9 @@ def send_tender(
 ):
 
     return send_tender_service(
-
         tender_id,
-
-        db
-
+        db,
+        current_user
     )
 
 
@@ -348,9 +313,6 @@ def upload_proposal(
 
 
     return {
-
         "mensaje": "Propuesta subida correctamente",
-
         "url": path
-
     }
