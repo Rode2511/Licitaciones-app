@@ -172,7 +172,7 @@ def add_product_to_tender(
 
 
 
-# Cambiar estado
+# Cambiar estado de licitación
 @router.patch("/{tender_id}/status")
 def change_status(
     tender_id: int,
@@ -189,6 +189,7 @@ def change_status(
 
 
     if not tender:
+
         raise HTTPException(
             status_code=404,
             detail="Licitación no encontrada"
@@ -200,8 +201,6 @@ def change_status(
 
     valid_transitions = {
 
-        "borrador": ["activa"],
-
         "activa": [
             "perdida",
             "finalizada"
@@ -209,20 +208,29 @@ def change_status(
 
         "finalizada": [
             "por_cobrar"
-        ],
-
-        "por_cobrar": [
-            "cobrada"
         ]
+
     }
 
 
-    if status.new_status not in valid_transitions.get(old_status, []):
+    if status.new_status not in valid_transitions.get(
+        old_status,
+        []
+    ):
 
         raise HTTPException(
             status_code=400,
-            detail=f"No se puede cambiar de {old_status} a {status.new_status}"
+            detail=(
+                f"No se puede cambiar de "
+                f"{old_status} a {status.new_status}"
+            )
         )
+
+
+    # Buscar el usuario autenticado
+    db_user = db.query(models.User).filter(
+        models.User.email == current_user["email"]
+    ).first()
 
 
     tender.status = status.new_status
@@ -232,13 +240,14 @@ def change_status(
         tender_id=tender.id,
         old_status=old_status,
         new_status=status.new_status,
-        user_id=current_user.id
+        user_id=db_user.id if db_user else None
     )
 
 
     db.add(history)
 
     db.commit()
+
     db.refresh(tender)
 
 
@@ -247,7 +256,6 @@ def change_status(
         "estado_anterior": old_status,
         "estado_nuevo": tender.status
     }
-
 
 
 # Enviar licitación

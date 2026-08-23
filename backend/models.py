@@ -236,3 +236,20 @@ class StatusHistory(Base):
         "Tender",
         back_populates="history"
     )
+
+class TenderReminder(Base):
+    __tablename__ = "tender_reminders"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    tender_id = Column(
+        Integer,
+        ForeignKey("tenders.id"),
+        unique=True,
+        nullable=False
+    )
+
+    sent_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
