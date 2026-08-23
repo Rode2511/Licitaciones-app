@@ -18,6 +18,7 @@ def send_tender_service(
 
 
     if not tender:
+
         raise HTTPException(
             status_code=404,
             detail="Licitación no encontrada"
@@ -25,6 +26,7 @@ def send_tender_service(
 
 
     if tender.status != "borrador":
+
         raise HTTPException(
             status_code=400,
             detail="Solo se pueden enviar licitaciones en borrador"
@@ -32,6 +34,7 @@ def send_tender_service(
 
 
     if not tender.proposal_url:
+
         raise HTTPException(
             status_code=400,
             detail="La licitación necesita una propuesta adjunta"
@@ -46,6 +49,7 @@ def send_tender_service(
 
 
     if not products:
+
         raise HTTPException(
             status_code=400,
             detail="La licitación no tiene productos"
@@ -59,20 +63,29 @@ def send_tender_service(
 
 
     if total > tender.budget:
+
         raise HTTPException(
             status_code=400,
             detail="El total supera el presupuesto"
         )
 
 
-    # Buscar el usuario autenticado en la base de datos
+    # Buscar usuario autenticado
     db_user = db.query(models.User).filter(
         models.User.email == current_user["email"]
     ).first()
 
 
     old_status = tender.status
+
     tender.status = "activa"
+
+    # Auditoría de modificación
+    tender.updated_by = (
+        db_user.id
+        if db_user
+        else None
+    )
 
 
     history = models.StatusHistory(
@@ -86,8 +99,9 @@ def send_tender_service(
     db.add(history)
 
 
-    # Crear resumen de productos para el correo
+    # Crear resumen de productos
     products_html = ""
+
 
     for item in products:
 
@@ -95,7 +109,9 @@ def send_tender_service(
             models.Product.id == item.product_id
         ).first()
 
+
         if product:
+
             products_html += f"""
             <li>
                 {product.name} -
@@ -141,8 +157,10 @@ def send_tender_service(
 
     db.commit()
 
+    db.refresh(tender)
+
 
     return {
         "mensaje": "Licitación enviada",
-        "estado": "activa"
+        "estado": tender.status
     }

@@ -26,25 +26,39 @@ def get_db():
 
 
 
-@router.post("/", response_model=schemas.ClientResponse)
+# Crear cliente
+@router.post(
+    "/",
+    response_model=schemas.ClientResponse
+)
 def create_client(
     client: schemas.ClientCreate,
     db: Session = Depends(get_db),
     current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+        require_role(["admin", "user"])
     )
 ):
+
+    # Buscar al usuario autenticado
+    db_user = db.query(models.User).filter(
+        models.User.email == current_user["email"]
+    ).first()
+
 
     new_client = models.Client(
         name=client.name,
         company=client.company,
         email=client.email,
-        phone=client.phone
+        phone=client.phone,
+        created_by=db_user.id if db_user else None,
+        updated_by=db_user.id if db_user else None
     )
 
 
     db.add(new_client)
+
     db.commit()
+
     db.refresh(new_client)
 
 
@@ -52,14 +66,18 @@ def create_client(
 
 
 
-@router.get("/", response_model=list[schemas.ClientResponse])
+# Listar clientes
+@router.get(
+    "/",
+    response_model=list[schemas.ClientResponse]
+)
 def get_clients(
     db: Session = Depends(get_db),
     current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+        require_role(["admin", "user"])
     )
 ):
 
-    clients = db.query(models.Client).all()
-
-    return clients
+    return db.query(
+        models.Client
+    ).all()

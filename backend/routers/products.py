@@ -25,40 +25,55 @@ def get_db():
         db.close()
 
 
-
-@router.post("/", response_model=schemas.ProductResponse)
+# Crear producto
+@router.post(
+    "/",
+    response_model=schemas.ProductResponse
+)
 def create_product(
     product: schemas.ProductCreate,
     db: Session = Depends(get_db),
-    current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+    current_user=Depends(
+        require_role(["admin", "user"])
     )
 ):
+
+    db_user = db.query(models.User).filter(
+        models.User.email == current_user["email"]
+    ).first()
+
 
     new_product = models.Product(
         name=product.name,
         description=product.description,
-        price=product.price
+        price=product.price,
+        created_by=db_user.id if db_user else None,
+        updated_by=db_user.id if db_user else None
     )
 
 
     db.add(new_product)
+
     db.commit()
+
     db.refresh(new_product)
 
 
     return new_product
 
 
-
-@router.get("/", response_model=list[schemas.ProductResponse])
+# Listar productos
+@router.get(
+    "/",
+    response_model=list[schemas.ProductResponse]
+)
 def get_products(
     db: Session = Depends(get_db),
-    current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+    current_user=Depends(
+        require_role(["admin", "user"])
     )
 ):
 
-    products = db.query(models.Product).all()
-
-    return products
+    return db.query(
+        models.Product
+    ).all()

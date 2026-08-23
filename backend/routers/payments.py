@@ -25,14 +25,23 @@ def get_db():
         db.close()
 
 
+def get_db_user(
+    db: Session,
+    current_user
+):
+
+    return db.query(models.User).filter(
+        models.User.email == current_user["email"]
+    ).first()
+
 
 @router.post("/{tender_id}")
 def create_payment(
     tender_id: int,
     payment: schemas.PaymentCreate,
     db: Session = Depends(get_db),
-    current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+    current_user=Depends(
+        require_role(["admin", "user"])
     )
 ):
 
@@ -50,7 +59,7 @@ def create_payment(
         )
 
 
-    # Solo se puede pagar si está por cobrar
+    # Solo se permiten pagos en estado por_cobrar
     if tender.status != "por_cobrar":
 
         raise HTTPException(
@@ -68,7 +77,14 @@ def create_payment(
         )
 
 
-    # Obtener productos asociados a la licitación
+    # Buscar usuario autenticado
+    db_user = get_db_user(
+        db,
+        current_user
+    )
+
+
+    # Obtener productos de la licitación
     products = db.execute(
         models.tender_products.select().where(
             models.tender_products.c.tender_id == tender_id
@@ -126,7 +142,7 @@ def create_payment(
         )
 
 
-    # No permitir pagar más del saldo
+    # Evitar sobrepago
     if payment.amount > saldo_pendiente:
 
         raise HTTPException(
@@ -138,10 +154,12 @@ def create_payment(
         )
 
 
-    # Registrar nuevo pago
+    # Registrar pago con auditoría
     new_payment = models.Payment(
         tender_id=tender_id,
-        amount=payment.amount
+        amount=payment.amount,
+        created_by=db_user.id if db_user else None,
+        updated_by=db_user.id if db_user else None
     )
 
 
@@ -162,11 +180,11 @@ def create_payment(
 
         tender.status = "cobrada"
 
-
-        # Buscar usuario autenticado
-        db_user = db.query(models.User).filter(
-            models.User.email == current_user["email"]
-        ).first()
+        tender.updated_by = (
+            db_user.id
+            if db_user
+            else None
+        )
 
 
         history = models.StatusHistory(

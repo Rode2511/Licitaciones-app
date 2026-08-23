@@ -1,29 +1,51 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Table
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Float,
+    DateTime,
+    ForeignKey,
+    Table
+)
+
 from sqlalchemy.orm import relationship
+
 from database import Base
-from datetime import datetime
+
+from datetime import datetime, timezone
+
+
+def utc_now():
+    return datetime.now(
+        timezone.utc
+    ).replace(tzinfo=None)
+
 
 # Tabla intermedia N:M entre licitaciones y productos
 tender_products = Table(
     "tender_products",
     Base.metadata,
+
     Column(
         "tender_id",
         Integer,
         ForeignKey("tenders.id"),
         primary_key=True
     ),
+
     Column(
         "product_id",
         Integer,
         ForeignKey("products.id"),
         primary_key=True
     ),
+
     Column(
         "quantity",
         Integer,
         nullable=False
     ),
+
     Column(
         "price",
         Float,
@@ -58,6 +80,30 @@ class User(Base):
         default="user"
     )
 
+    # Auditoría
+    created_at = Column(
+        DateTime,
+        default=utc_now
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=utc_now,
+        onupdate=utc_now
+    )
+
+    created_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    updated_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
 
 class Client(Base):
 
@@ -77,11 +123,35 @@ class Client(Base):
 
     phone = Column(String)
 
+    # Auditoría
+    created_at = Column(
+        DateTime,
+        default=utc_now
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=utc_now,
+        onupdate=utc_now
+    )
+
+    created_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    updated_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
 
     tenders = relationship(
         "Tender",
         back_populates="client"
     )
+
 
 class Product(Base):
 
@@ -107,12 +177,36 @@ class Product(Base):
         nullable=False
     )
 
+    # Auditoría
+    created_at = Column(
+        DateTime,
+        default=utc_now
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=utc_now,
+        onupdate=utc_now
+    )
+
+    created_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    updated_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
 
     tenders = relationship(
         "Tender",
         secondary=tender_products,
         back_populates="products"
     )
+
 
 class Tender(Base):
 
@@ -146,12 +240,34 @@ class Tender(Base):
         nullable=True
     )
 
+    # Auditoría
+    created_at = Column(
+        DateTime,
+        default=utc_now
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=utc_now,
+        onupdate=utc_now
+    )
+
+    created_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    updated_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
 
     client = relationship(
         "Client",
         back_populates="tenders"
     )
-
 
     products = relationship(
         "Product",
@@ -159,17 +275,16 @@ class Tender(Base):
         back_populates="tenders"
     )
 
-
     payments = relationship(
         "Payment",
         back_populates="tender"
     )
 
-
     history = relationship(
         "StatusHistory",
         back_populates="tender"
     )
+
 
 class Payment(Base):
 
@@ -191,14 +306,33 @@ class Payment(Base):
         nullable=False
     )
 
+    # Auditoría
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=utc_now
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=utc_now,
+        onupdate=utc_now
+    )
+
+    created_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    updated_by = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
     )
 
     tender = relationship(
-    "Tender",
-    back_populates="payments"
+        "Tender",
+        back_populates="payments"
     )
 
 
@@ -223,24 +357,30 @@ class StatusHistory(Base):
 
     user_id = Column(
         Integer,
-        ForeignKey("users.id")
+        ForeignKey("users.id"),
+        nullable=True
     )
 
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=utc_now
     )
-
 
     tender = relationship(
         "Tender",
         back_populates="history"
     )
 
+
 class TenderReminder(Base):
+
     __tablename__ = "tender_reminders"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     tender_id = Column(
         Integer,
@@ -251,5 +391,5 @@ class TenderReminder(Base):
 
     sent_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=utc_now
     )

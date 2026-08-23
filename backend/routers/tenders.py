@@ -7,6 +7,7 @@ from services.file_service import save_file
 from dependencies import require_role
 
 from database import SessionLocal
+
 import models
 import schemas
 
@@ -28,16 +29,35 @@ def get_db():
         db.close()
 
 
+def get_db_user(
+    db: Session,
+    current_user
+):
+
+    return db.query(models.User).filter(
+        models.User.email == current_user["email"]
+    ).first()
+
+
 
 # Crear licitación
-@router.post("/", response_model=schemas.TenderResponse)
+@router.post(
+    "/",
+    response_model=schemas.TenderResponse
+)
 def create_tender(
     tender: schemas.TenderCreate,
     db: Session = Depends(get_db),
-    current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+    current_user=Depends(
+        require_role(["admin", "user"])
     )
 ):
+
+    db_user = get_db_user(
+        db,
+        current_user
+    )
+
 
     new_tender = models.Tender(
         client_id=tender.client_id,
@@ -45,12 +65,16 @@ def create_tender(
         description=tender.description,
         budget=tender.budget,
         deadline=tender.deadline,
-        status="borrador"
+        status="borrador",
+        created_by=db_user.id if db_user else None,
+        updated_by=db_user.id if db_user else None
     )
 
 
     db.add(new_tender)
+
     db.commit()
+
     db.refresh(new_tender)
 
 
@@ -59,15 +83,20 @@ def create_tender(
 
 
 # Obtener licitaciones
-@router.get("/", response_model=list[schemas.TenderResponse])
+@router.get(
+    "/",
+    response_model=list[schemas.TenderResponse]
+)
 def get_tenders(
     db: Session = Depends(get_db),
-    current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+    current_user=Depends(
+        require_role(["admin", "user"])
     )
 ):
 
-    return db.query(models.Tender).all()
+    return db.query(
+        models.Tender
+    ).all()
 
 
 
@@ -79,8 +108,8 @@ def get_tenders(
 def get_tender_detail(
     tender_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+    current_user=Depends(
+        require_role(["admin", "user"])
     )
 ):
 
@@ -90,6 +119,7 @@ def get_tender_detail(
 
 
     if not tender:
+
         raise HTTPException(
             status_code=404,
             detail="Licitación no encontrada"
@@ -100,14 +130,16 @@ def get_tender_detail(
 
 
 
-# Agregar productos
-@router.post("/{tender_id}/products")
+# Agregar producto
+@router.post(
+    "/{tender_id}/products"
+)
 def add_product_to_tender(
     tender_id: int,
     item: schemas.TenderProductCreate,
     db: Session = Depends(get_db),
-    current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+    current_user=Depends(
+        require_role(["admin", "user"])
     )
 ):
 
@@ -117,6 +149,7 @@ def add_product_to_tender(
 
 
     if not tender:
+
         raise HTTPException(
             status_code=404,
             detail="Licitación no encontrada"
@@ -137,20 +170,64 @@ def add_product_to_tender(
 
 
     if not product:
+
         raise HTTPException(
             status_code=404,
             detail="Producto no encontrado"
         )
 
 
-    total_actual = item.quantity * item.price
+    existing_product = db.execute(
+        models.tender_products.select().where(
+            models.tender_products.c.tender_id == tender_id,
+            models.tender_products.c.product_id == item.product_id
+        )
+    ).first()
 
 
-    if total_actual > tender.budget:
+    if existing_product:
 
         raise HTTPException(
             status_code=400,
-            detail="El producto supera el presupuesto"
+            detail="El producto ya está agregado a esta licitación"
+        )
+
+
+    existing_products = db.execute(
+        models.tender_products.select().where(
+            models.tender_products.c.tender_id == tender_id
+        )
+    ).fetchall()
+
+
+    total_existente = sum(
+        product_item.quantity * product_item.price
+        for product_item in existing_products
+    )
+
+
+    total_nuevo = (
+        item.quantity *
+        item.price
+    )
+
+
+    total_final = (
+        total_existente +
+        total_nuevo
+    )
+
+
+    if total_final > tender.budget:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"El total de productos supera el presupuesto. "
+                f"Total actual: ${total_existente}. "
+                f"Nuevo total: ${total_final}. "
+                f"Presupuesto máximo: ${tender.budget}"
+            )
         )
 
 
@@ -163,23 +240,123 @@ def add_product_to_tender(
 
 
     db.execute(connection)
+
+
+    db_user = get_db_user(
+        db,
+        current_user
+    )
+
+
+    tender.updated_by = (
+        db_user.id
+        if db_user
+        else None
+    )
+
+
     db.commit()
 
 
     return {
-        "mensaje": "Producto agregado a la licitación"
+        "mensaje": "Producto agregado a la licitación",
+        "total_productos": total_final,
+        "presupuesto": tender.budget
     }
 
 
 
-# Cambiar estado de licitación
-@router.patch("/{tender_id}/status")
+# Quitar producto
+@router.delete(
+    "/{tender_id}/products/{product_id}"
+)
+def remove_product_from_tender(
+    tender_id: int,
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(
+        require_role(["admin", "user"])
+    )
+):
+
+    tender = db.query(models.Tender).filter(
+        models.Tender.id == tender_id
+    ).first()
+
+
+    if not tender:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Licitación no encontrada"
+        )
+
+
+    if tender.status != "borrador":
+
+        raise HTTPException(
+            status_code=400,
+            detail="No se pueden modificar productos en este estado"
+        )
+
+
+    tender_product = db.execute(
+        models.tender_products.select().where(
+            models.tender_products.c.tender_id == tender_id,
+            models.tender_products.c.product_id == product_id
+        )
+    ).first()
+
+
+    if not tender_product:
+
+        raise HTTPException(
+            status_code=404,
+            detail="El producto no está asociado a esta licitación"
+        )
+
+
+    delete_query = models.tender_products.delete().where(
+        models.tender_products.c.tender_id == tender_id,
+        models.tender_products.c.product_id == product_id
+    )
+
+
+    db.execute(delete_query)
+
+
+    db_user = get_db_user(
+        db,
+        current_user
+    )
+
+
+    tender.updated_by = (
+        db_user.id
+        if db_user
+        else None
+    )
+
+
+    db.commit()
+
+
+    return {
+        "mensaje": "Producto eliminado de la licitación"
+    }
+
+
+
+# Cambiar estado
+@router.patch(
+    "/{tender_id}/status"
+)
 def change_status(
     tender_id: int,
     status: schemas.StatusChange,
     db: Session = Depends(get_db),
-    current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+    current_user=Depends(
+        require_role(["admin", "user"])
     )
 ):
 
@@ -227,13 +404,19 @@ def change_status(
         )
 
 
-    # Buscar el usuario autenticado
-    db_user = db.query(models.User).filter(
-        models.User.email == current_user["email"]
-    ).first()
+    db_user = get_db_user(
+        db,
+        current_user
+    )
 
 
     tender.status = status.new_status
+
+    tender.updated_by = (
+        db_user.id
+        if db_user
+        else None
+    )
 
 
     history = models.StatusHistory(
@@ -258,13 +441,16 @@ def change_status(
     }
 
 
+
 # Enviar licitación
-@router.post("/{tender_id}/send")
+@router.post(
+    "/{tender_id}/send"
+)
 def send_tender(
     tender_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+    current_user=Depends(
+        require_role(["admin", "user"])
     )
 ):
 
@@ -275,14 +461,17 @@ def send_tender(
     )
 
 
+
 # Subir propuesta PDF
-@router.post("/{tender_id}/proposal")
+@router.post(
+    "/{tender_id}/proposal"
+)
 def upload_proposal(
     tender_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user = Depends(
-        require_role(["admin", "ejecutivo"])
+    current_user=Depends(
+        require_role(["admin", "user"])
     )
 ):
 
@@ -299,7 +488,15 @@ def upload_proposal(
         )
 
 
-    if not file.filename.endswith(".pdf"):
+    if tender.status != "borrador":
+
+        raise HTTPException(
+            status_code=400,
+            detail="Solo se puede subir una propuesta en estado borrador"
+        )
+
+
+    if not file.filename.lower().endswith(".pdf"):
 
         raise HTTPException(
             status_code=400,
@@ -313,10 +510,24 @@ def upload_proposal(
     )
 
 
+    db_user = get_db_user(
+        db,
+        current_user
+    )
+
+
     tender.proposal_url = path
+
+    tender.updated_by = (
+        db_user.id
+        if db_user
+        else None
+    )
 
 
     db.commit()
+
+    db.refresh(tender)
 
 
     return {
