@@ -3,6 +3,7 @@
 import {
   FormEvent,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -30,7 +31,6 @@ type Client = {
 };
 
 
-// Producto del catálogo general
 type Product = {
   id: number;
   name: string;
@@ -39,9 +39,6 @@ type Product = {
 };
 
 
-// Producto ya asociado a una licitación.
-// Aquí sí necesitamos quantity y el precio
-// específico usado dentro de la licitación.
 type TenderProduct = {
   id: number;
   name: string;
@@ -69,8 +66,11 @@ type TenderDetail = {
   deadline: string;
   status: string;
   proposal_url?: string | null;
+
   client: Client;
+
   products: TenderProduct[];
+
   history: StatusHistory[];
 };
 
@@ -85,7 +85,7 @@ type PaymentResult = {
 
 
 // =========================================================
-// PÁGINA
+// COMPONENTE
 // =========================================================
 
 export default function TenderDetailPage() {
@@ -93,21 +93,26 @@ export default function TenderDetailPage() {
 
   const params = useParams();
 
-  const tenderId = Number(
-    params.id
-  );
+  const tenderId =
+    Number(params.id);
 
 
   // =======================================================
   // ESTADOS
   // =======================================================
 
-  const [tender, setTender] =
-    useState<TenderDetail | null>(null);
+  const [
+    tender,
+    setTender,
+  ] = useState<TenderDetail | null>(
+    null
+  );
 
 
-  const [allProducts, setAllProducts] =
-    useState<Product[]>([]);
+  const [
+    allProducts,
+    setAllProducts,
+  ] = useState<Product[]>([]);
 
 
   const [
@@ -116,18 +121,31 @@ export default function TenderDetailPage() {
   ] = useState("");
 
 
-  const [quantity, setQuantity] =
-    useState("1");
+  const [
+    quantity,
+    setQuantity,
+  ] = useState("1");
 
 
-  const [price, setPrice] =
-    useState("");
+  const [
+    price,
+    setPrice,
+  ] = useState("");
 
 
   const [
     proposalFile,
     setProposalFile,
-  ] = useState<File | null>(null);
+  ] = useState<File | null>(
+    null
+  );
+
+
+  // Referencia al input oculto de PDF
+  const fileInputRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
 
 
   const [
@@ -144,8 +162,10 @@ export default function TenderDetailPage() {
   );
 
 
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
 
   const [
@@ -154,12 +174,16 @@ export default function TenderDetailPage() {
   ] = useState(false);
 
 
-  const [error, setError] =
-    useState("");
+  const [
+    error,
+    setError,
+  ] = useState("");
 
 
-  const [success, setSuccess] =
-    useState("");
+  const [
+    success,
+    setSuccess,
+  ] = useState("");
 
 
   // =======================================================
@@ -167,6 +191,7 @@ export default function TenderDetailPage() {
   // =======================================================
 
   useEffect(() => {
+
     const token =
       localStorage.getItem(
         "access_token"
@@ -174,14 +199,20 @@ export default function TenderDetailPage() {
 
 
     if (!token) {
+
       router.push("/");
+
       return;
+
     }
 
 
     if (
-      Number.isNaN(tenderId)
+      Number.isNaN(
+        tenderId
+      )
     ) {
+
       setError(
         "ID de licitación inválido"
       );
@@ -189,6 +220,7 @@ export default function TenderDetailPage() {
       setLoading(false);
 
       return;
+
     }
 
 
@@ -198,11 +230,13 @@ export default function TenderDetailPage() {
 
 
   // =======================================================
-  // CARGAR LICITACIÓN Y PRODUCTOS
+  // CARGAR DATOS
   // =======================================================
 
   async function loadData() {
+
     try {
+
       setLoading(true);
 
 
@@ -210,6 +244,7 @@ export default function TenderDetailPage() {
         tenderResponse,
         productsResponse,
       ] = await Promise.all([
+
         apiFetch(
           `/tenders/${tenderId}`
         ),
@@ -217,6 +252,7 @@ export default function TenderDetailPage() {
         apiFetch(
           "/products/"
         ),
+
       ]);
 
 
@@ -224,6 +260,7 @@ export default function TenderDetailPage() {
         tenderResponse.status === 401 ||
         productsResponse.status === 401
       ) {
+
         localStorage.removeItem(
           "access_token"
         );
@@ -231,6 +268,7 @@ export default function TenderDetailPage() {
         router.push("/");
 
         return;
+
       }
 
 
@@ -243,22 +281,26 @@ export default function TenderDetailPage() {
 
 
       if (!tenderResponse.ok) {
+
         setError(
           tenderData.detail ||
           "No se pudo cargar la licitación"
         );
 
         return;
+
       }
 
 
       if (!productsResponse.ok) {
+
         setError(
           productsData.detail ||
           "No se pudieron cargar los productos"
         );
 
         return;
+
       }
 
 
@@ -268,19 +310,27 @@ export default function TenderDetailPage() {
 
 
       setAllProducts(
-        Array.isArray(productsData)
+        Array.isArray(
+          productsData
+        )
           ? productsData
           : []
       );
 
+
     } catch {
+
       setError(
         "No se pudo conectar con el servidor"
       );
 
+
     } finally {
+
       setLoading(false);
+
     }
+
   }
 
 
@@ -289,18 +339,22 @@ export default function TenderDetailPage() {
   // =======================================================
 
   function clearMessages() {
+
     setError("");
+
     setSuccess("");
+
   }
 
 
   // =======================================================
-  // SELECCIONAR PRODUCTO
+  // CAMBIO DE PRODUCTO
   // =======================================================
 
   function handleProductChange(
     productId: string
   ) {
+
     setSelectedProductId(
       productId
     );
@@ -315,12 +369,19 @@ export default function TenderDetailPage() {
 
 
     if (product) {
+
       setPrice(
-        String(product.price)
+        String(
+          product.price
+        )
       );
+
     } else {
+
       setPrice("");
+
     }
+
   }
 
 
@@ -329,55 +390,73 @@ export default function TenderDetailPage() {
   // =======================================================
 
   async function addProduct(
-    event: FormEvent<HTMLFormElement>
+    event:
+      FormEvent<HTMLFormElement>
   ) {
+
     event.preventDefault();
 
     clearMessages();
 
 
     const numericProductId =
-      Number(selectedProductId);
+      Number(
+        selectedProductId
+      );
 
 
     const numericQuantity =
-      Number(quantity);
+      Number(
+        quantity
+      );
 
 
     const numericPrice =
-      Number(price);
+      Number(
+        price
+      );
 
 
     if (!numericProductId) {
+
       setError(
         "Selecciona un producto"
       );
 
       return;
+
     }
 
 
     if (
       numericQuantity <= 0 ||
-      Number.isNaN(numericQuantity)
+      Number.isNaN(
+        numericQuantity
+      )
     ) {
+
       setError(
         "La cantidad debe ser mayor que cero"
       );
 
       return;
+
     }
 
 
     if (
       numericPrice <= 0 ||
-      Number.isNaN(numericPrice)
+      Number.isNaN(
+        numericPrice
+      )
     ) {
+
       setError(
         "El precio debe ser mayor que cero"
       );
 
       return;
+
     }
 
 
@@ -385,22 +464,24 @@ export default function TenderDetailPage() {
 
 
     try {
+
       const response =
         await apiFetch(
           `/tenders/${tenderId}/products`,
           {
             method: "POST",
 
-            body: JSON.stringify({
-              product_id:
-                numericProductId,
+            body:
+              JSON.stringify({
+                product_id:
+                  numericProductId,
 
-              quantity:
-                numericQuantity,
+                quantity:
+                  numericQuantity,
 
-              price:
-                numericPrice,
-            }),
+                price:
+                  numericPrice,
+              }),
           }
         );
 
@@ -410,12 +491,14 @@ export default function TenderDetailPage() {
 
 
       if (!response.ok) {
+
         setError(
           data.detail ||
           "No se pudo agregar el producto"
         );
 
         return;
+
       }
 
 
@@ -425,20 +508,28 @@ export default function TenderDetailPage() {
 
 
       setSelectedProductId("");
+
       setQuantity("1");
+
       setPrice("");
 
 
       await loadData();
 
+
     } catch {
+
       setError(
         "No se pudo conectar con el servidor"
       );
 
+
     } finally {
+
       setActionLoading(false);
+
     }
+
   }
 
 
@@ -449,6 +540,7 @@ export default function TenderDetailPage() {
   async function removeProduct(
     productId: number
   ) {
+
     clearMessages();
 
 
@@ -459,7 +551,9 @@ export default function TenderDetailPage() {
 
 
     if (!confirmed) {
+
       return;
+
     }
 
 
@@ -467,6 +561,7 @@ export default function TenderDetailPage() {
 
 
     try {
+
       const response =
         await apiFetch(
           `/tenders/${tenderId}/products/${productId}`,
@@ -481,12 +576,14 @@ export default function TenderDetailPage() {
 
 
       if (!response.ok) {
+
         setError(
           data.detail ||
           "No se pudo eliminar el producto"
         );
 
         return;
+
       }
 
 
@@ -497,35 +594,60 @@ export default function TenderDetailPage() {
 
       await loadData();
 
+
     } catch {
+
       setError(
         "No se pudo conectar con el servidor"
       );
 
+
     } finally {
+
       setActionLoading(false);
+
     }
+
   }
 
 
   // =======================================================
-  // SUBIR PROPUESTA
+  // SUBIR PROPUESTA PDF
   // =======================================================
 
   async function uploadProposal(
-    event: FormEvent<HTMLFormElement>
+    event:
+      FormEvent<HTMLFormElement>
   ) {
+
     event.preventDefault();
 
     clearMessages();
 
 
     if (!proposalFile) {
+
       setError(
         "Selecciona un archivo PDF"
       );
 
       return;
+
+    }
+
+
+    if (
+      proposalFile.type &&
+      proposalFile.type !==
+        "application/pdf"
+    ) {
+
+      setError(
+        "El archivo debe ser un PDF"
+      );
+
+      return;
+
     }
 
 
@@ -543,6 +665,7 @@ export default function TenderDetailPage() {
 
 
     try {
+
       const response =
         await apiFetch(
           `/tenders/${tenderId}/proposal`,
@@ -558,12 +681,14 @@ export default function TenderDetailPage() {
 
 
       if (!response.ok) {
+
         setError(
           data.detail ||
           "No se pudo subir la propuesta"
         );
 
         return;
+
       }
 
 
@@ -577,16 +702,32 @@ export default function TenderDetailPage() {
       );
 
 
+      if (
+        fileInputRef.current
+      ) {
+
+        fileInputRef.current.value =
+          "";
+
+      }
+
+
       await loadData();
 
+
     } catch {
+
       setError(
         "No se pudo conectar con el servidor"
       );
 
+
     } finally {
+
       setActionLoading(false);
+
     }
+
   }
 
 
@@ -595,6 +736,7 @@ export default function TenderDetailPage() {
   // =======================================================
 
   async function sendTender() {
+
     clearMessages();
 
 
@@ -605,7 +747,9 @@ export default function TenderDetailPage() {
 
 
     if (!confirmed) {
+
       return;
+
     }
 
 
@@ -613,6 +757,7 @@ export default function TenderDetailPage() {
 
 
     try {
+
       const response =
         await apiFetch(
           `/tenders/${tenderId}/send`,
@@ -627,12 +772,14 @@ export default function TenderDetailPage() {
 
 
       if (!response.ok) {
+
         setError(
           data.detail ||
           "No se pudo enviar la licitación"
         );
 
         return;
+
       }
 
 
@@ -643,14 +790,20 @@ export default function TenderDetailPage() {
 
       await loadData();
 
+
     } catch {
+
       setError(
         "No se pudo conectar con el servidor"
       );
 
+
     } finally {
+
       setActionLoading(false);
+
     }
+
   }
 
 
@@ -661,6 +814,7 @@ export default function TenderDetailPage() {
   async function changeStatus(
     newStatus: string
   ) {
+
     clearMessages();
 
 
@@ -671,7 +825,9 @@ export default function TenderDetailPage() {
 
 
     if (!confirmed) {
+
       return;
+
     }
 
 
@@ -679,16 +835,18 @@ export default function TenderDetailPage() {
 
 
     try {
+
       const response =
         await apiFetch(
           `/tenders/${tenderId}/status`,
           {
             method: "PATCH",
 
-            body: JSON.stringify({
-              new_status:
-                newStatus,
-            }),
+            body:
+              JSON.stringify({
+                new_status:
+                  newStatus,
+              }),
           }
         );
 
@@ -698,12 +856,14 @@ export default function TenderDetailPage() {
 
 
       if (!response.ok) {
+
         setError(
           data.detail ||
           "No se pudo cambiar el estado"
         );
 
         return;
+
       }
 
 
@@ -714,14 +874,20 @@ export default function TenderDetailPage() {
 
       await loadData();
 
+
     } catch {
+
       setError(
         "No se pudo conectar con el servidor"
       );
 
+
     } finally {
+
       setActionLoading(false);
+
     }
+
   }
 
 
@@ -730,26 +896,34 @@ export default function TenderDetailPage() {
   // =======================================================
 
   async function registerPayment(
-    event: FormEvent<HTMLFormElement>
+    event:
+      FormEvent<HTMLFormElement>
   ) {
+
     event.preventDefault();
 
     clearMessages();
 
 
     const numericAmount =
-      Number(paymentAmount);
+      Number(
+        paymentAmount
+      );
 
 
     if (
-      Number.isNaN(numericAmount) ||
+      Number.isNaN(
+        numericAmount
+      ) ||
       numericAmount <= 0
     ) {
+
       setError(
         "El monto debe ser mayor que cero"
       );
 
       return;
+
     }
 
 
@@ -757,16 +931,18 @@ export default function TenderDetailPage() {
 
 
     try {
+
       const response =
         await apiFetch(
           `/payments/${tenderId}`,
           {
             method: "POST",
 
-            body: JSON.stringify({
-              amount:
-                numericAmount,
-            }),
+            body:
+              JSON.stringify({
+                amount:
+                  numericAmount,
+              }),
           }
         );
 
@@ -776,12 +952,14 @@ export default function TenderDetailPage() {
 
 
       if (!response.ok) {
+
         setError(
           data.detail ||
           "No se pudo registrar el pago"
         );
 
         return;
+
       }
 
 
@@ -800,27 +978,36 @@ export default function TenderDetailPage() {
 
       await loadData();
 
+
     } catch {
+
       setError(
         "No se pudo conectar con el servidor"
       );
 
+
     } finally {
+
       setActionLoading(false);
+
     }
+
   }
 
 
   // =======================================================
-  // CERRAR SESIÓN
+  // LOGOUT
   // =======================================================
 
   function logout() {
+
     localStorage.removeItem(
       "access_token"
     );
 
+
     router.push("/");
+
   }
 
 
@@ -831,41 +1018,74 @@ export default function TenderDetailPage() {
   function formatDate(
     value: string
   ) {
+
     return new Date(
       value
     ).toLocaleString();
+
   }
 
 
   // =======================================================
-  // COLORES DE ESTADO
+  // ESTILO DE ESTADOS
   // =======================================================
 
   function getStatusStyle(
     status: string
   ) {
+
     switch (status) {
+
       case "borrador":
-        return "bg-zinc-100 text-zinc-700";
+
+        return (
+          "bg-zinc-100 text-zinc-700"
+        );
+
 
       case "activa":
-        return "bg-blue-100 text-blue-700";
+
+        return (
+          "bg-blue-100 text-blue-700"
+        );
+
 
       case "finalizada":
-        return "bg-purple-100 text-purple-700";
+
+        return (
+          "bg-purple-100 text-purple-700"
+        );
+
 
       case "por_cobrar":
-        return "bg-yellow-100 text-yellow-800";
+
+        return (
+          "bg-yellow-100 text-yellow-800"
+        );
+
 
       case "cobrada":
-        return "bg-green-100 text-green-700";
+
+        return (
+          "bg-green-100 text-green-700"
+        );
+
 
       case "perdida":
-        return "bg-red-100 text-red-700";
+
+        return (
+          "bg-red-100 text-red-700"
+        );
+
 
       default:
-        return "bg-zinc-100 text-zinc-700";
+
+        return (
+          "bg-zinc-100 text-zinc-700"
+        );
+
     }
+
   }
 
 
@@ -874,6 +1094,7 @@ export default function TenderDetailPage() {
   // =======================================================
 
   if (loading) {
+
     return (
       <main className="min-h-screen bg-zinc-100 flex items-center justify-center">
 
@@ -883,14 +1104,16 @@ export default function TenderDetailPage() {
 
       </main>
     );
+
   }
 
 
   // =======================================================
-  // LICITACIÓN NO ENCONTRADA
+  // NO ENCONTRADA
   // =======================================================
 
   if (!tender) {
+
     return (
       <main className="min-h-screen bg-zinc-100 flex items-center justify-center">
 
@@ -913,6 +1136,7 @@ export default function TenderDetailPage() {
 
       </main>
     );
+
   }
 
 
@@ -1079,7 +1303,7 @@ export default function TenderDetailPage() {
             </div>
 
 
-            {/* DEADLINE */}
+            {/* FECHA */}
             <div>
 
               <p className="text-sm text-zinc-500">
@@ -1135,7 +1359,7 @@ export default function TenderDetailPage() {
 
 
           {/* =================================================
-              PRODUCTOS ASOCIADOS
+              PRODUCTOS
           ================================================= */}
           <div className="lg:col-span-2 bg-white rounded-xl border border-zinc-200">
 
@@ -1185,27 +1409,38 @@ export default function TenderDetailPage() {
                         <div className="mt-3 space-y-1">
 
                           <p className="text-sm text-zinc-500">
+
                             Cantidad:{" "}
+
                             <span className="font-medium text-zinc-900">
                               {product.quantity}
                             </span>
+
                           </p>
 
 
                           <p className="text-sm text-zinc-500">
+
                             Precio unitario:{" "}
+
                             <span className="font-medium text-zinc-900">
+
                               $
                               {Number(
                                 product.price
                               ).toFixed(2)}
+
                             </span>
+
                           </p>
 
 
                           <p className="text-sm text-zinc-500">
+
                             Subtotal:{" "}
+
                             <span className="font-semibold text-zinc-900">
+
                               $
                               {(
                                 Number(
@@ -1215,7 +1450,9 @@ export default function TenderDetailPage() {
                                   product.price
                                 )
                               ).toFixed(2)}
+
                             </span>
+
                           </p>
 
                         </div>
@@ -1267,7 +1504,6 @@ export default function TenderDetailPage() {
                   onSubmit={addProduct}
                   className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4"
                 >
-
 
                   <select
                     required
@@ -1370,12 +1606,17 @@ export default function TenderDetailPage() {
               <>
 
 
-                {/* SUBIR PDF */}
+                {/* SUBIR PROPUESTA */}
                 <div className="bg-white rounded-xl border border-zinc-200 p-6">
 
                   <h3 className="font-semibold text-zinc-900">
                     Documento de propuesta
                   </h3>
+
+
+                  <p className="text-sm text-zinc-500 mt-2">
+                    Selecciona un archivo PDF desde tu computadora.
+                  </p>
 
 
                   <form
@@ -1385,28 +1626,96 @@ export default function TenderDetailPage() {
                     className="mt-4 space-y-4"
                   >
 
+
+                    {/* INPUT OCULTO */}
                     <input
+                      ref={
+                        fileInputRef
+                      }
                       type="file"
                       accept=".pdf,application/pdf"
-                      onChange={(event) =>
-                        setProposalFile(
+                      className="hidden"
+                      onChange={(event) => {
+
+                        const file =
                           event.target
                             .files?.[0] ||
-                            null
-                        )
-                      }
-                      className="block w-full text-sm text-zinc-600"
+                          null;
+
+
+                        setProposalFile(
+                          file
+                        );
+
+                      }}
                     />
 
 
+                    {/* BOTÓN QUE ABRE EL EXPLORADOR */}
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={() =>
+                        fileInputRef
+                          .current
+                          ?.click()
+                      }
                       disabled={
                         actionLoading
                       }
                       className="w-full rounded-lg border border-zinc-300 px-4 py-2 font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
                     >
-                      Subir PDF
+                      Seleccionar PDF
+                    </button>
+
+
+                    {/* NOMBRE DEL ARCHIVO */}
+                    {proposalFile && (
+
+                      <div className="rounded-lg bg-zinc-50 p-3 text-sm text-zinc-600">
+
+                        <p className="font-medium text-zinc-900">
+                          Archivo seleccionado:
+                        </p>
+
+
+                        <p className="mt-1 break-all">
+                          {proposalFile.name}
+                        </p>
+
+
+                        <p className="mt-1 text-xs text-zinc-500">
+
+                          Tamaño:{" "}
+
+                          {(
+                            proposalFile.size /
+                            1024 /
+                            1024
+                          ).toFixed(2)}
+
+                          {" "}MB
+
+                        </p>
+
+                      </div>
+
+                    )}
+
+
+                    {/* SUBIR */}
+                    <button
+                      type="submit"
+                      disabled={
+                        actionLoading ||
+                        !proposalFile
+                      }
+                      className="w-full rounded-lg bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+                    >
+
+                      {actionLoading
+                        ? "Subiendo..."
+                        : "Subir PDF"}
+
                     </button>
 
                   </form>
@@ -1597,35 +1906,47 @@ export default function TenderDetailPage() {
                   <div className="mt-5 rounded-lg bg-zinc-50 p-4 text-sm">
 
                     <p>
+
                       Total facturado:{" "}
+
                       <strong>
                         $
                         {Number(
-                          paymentResult.total_facturado
+                          paymentResult
+                            .total_facturado
                         ).toFixed(2)}
                       </strong>
+
                     </p>
 
 
                     <p className="mt-1">
+
                       Total pagado:{" "}
+
                       <strong>
                         $
                         {Number(
-                          paymentResult.total_pagado
+                          paymentResult
+                            .total_pagado
                         ).toFixed(2)}
                       </strong>
+
                     </p>
 
 
                     <p className="mt-1">
+
                       Saldo pendiente:{" "}
+
                       <strong>
                         $
                         {Number(
-                          paymentResult.saldo_pendiente
+                          paymentResult
+                            .saldo_pendiente
                         ).toFixed(2)}
                       </strong>
+
                     </p>
 
                   </div>
@@ -1651,11 +1972,15 @@ export default function TenderDetailPage() {
 
 
                 <p className="text-sm text-zinc-500 mt-2">
+
                   Esta licitación se encuentra en estado{" "}
+
                   <strong>
                     {tender.status}
                   </strong>
+
                   .
+
                 </p>
 
               </div>
@@ -1681,8 +2006,7 @@ export default function TenderDetailPage() {
           </div>
 
 
-          {tender.history.length ===
-          0 ? (
+          {tender.history.length === 0 ? (
 
             <div className="p-6 text-zinc-500">
               Todavía no hay cambios de estado.
@@ -1701,7 +2025,6 @@ export default function TenderDetailPage() {
                   >
 
 
-                    {/* TRANSICIÓN */}
                     <div className="flex items-center gap-3">
 
                       <span className="font-medium text-zinc-700">
@@ -1721,19 +2044,22 @@ export default function TenderDetailPage() {
                     </div>
 
 
-                    {/* USUARIO + FECHA */}
                     <div className="text-sm text-zinc-500 md:text-right">
 
                       <p className="font-medium text-zinc-700">
+
                         {history.user_email ||
                           "Sistema"}
+
                       </p>
 
 
                       <p className="mt-1">
+
                         {formatDate(
                           history.created_at
                         )}
+
                       </p>
 
                     </div>
