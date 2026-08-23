@@ -29,30 +29,59 @@ from services.scheduler_service import (
     stop_scheduler
 )
 
+from services.bootstrap_service import (
+    ensure_admin_user
+)
+
 
 load_dotenv()
 
+
+# =========================================================
+# CREAR TABLAS
+# =========================================================
 
 Base.metadata.create_all(
     bind=engine
 )
 
 
+# =========================================================
+# CICLO DE VIDA
+# =========================================================
+
 @asynccontextmanager
 async def lifespan(
     app: FastAPI
 ):
 
+    # Crear administrador inicial
+    # solo si todavía no existe.
+    ensure_admin_user()
+
+
+    # Iniciar scheduler
     start_scheduler()
+
 
     yield
 
+
+    # Detener scheduler al cerrar
     stop_scheduler()
 
 
+# =========================================================
+# FASTAPI
+# =========================================================
+
 app = FastAPI(
     title="Sistema de Licitaciones",
-    lifespan=lifespan
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 
@@ -90,8 +119,7 @@ if frontend_url:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=
-        allowed_origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
@@ -126,6 +154,10 @@ app.include_router(
     payments.router
 )
 
+
+# =========================================================
+# ROOT
+# =========================================================
 
 @app.get("/")
 def root():
