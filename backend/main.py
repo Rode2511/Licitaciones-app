@@ -18,6 +18,7 @@ from database import (
 from routers import (
     auth,
     clients,
+    jobs,
     payments,
     products,
     tenders,
@@ -154,6 +155,9 @@ app.include_router(
     payments.router
 )
 
+app.include_router(
+    jobs.router
+)
 
 # =========================================================
 # ROOT
