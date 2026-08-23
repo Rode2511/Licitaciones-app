@@ -267,7 +267,6 @@ def send_tender(
     )
 
 
-
 # Subir propuesta PDF
 @router.post("/{tender_id}/proposal")
 def upload_proposal(

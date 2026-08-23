@@ -6,10 +6,10 @@ import models
 from services.email_service import send_email
 
 
-
 def send_tender_service(
     tender_id: int,
-    db: Session
+    db: Session,
+    current_user
 ):
 
     tender = db.query(models.Tender).filter(
@@ -25,7 +25,6 @@ def send_tender_service(
 
 
     if tender.status != "borrador":
-
         raise HTTPException(
             status_code=400,
             detail="Solo se pueden enviar licitaciones en borrador"
@@ -33,7 +32,6 @@ def send_tender_service(
 
 
     if not tender.proposal_url:
-
         raise HTTPException(
             status_code=400,
             detail="La licitación necesita una propuesta adjunta"
@@ -48,7 +46,6 @@ def send_tender_service(
 
 
     if not products:
-
         raise HTTPException(
             status_code=400,
             detail="La licitación no tiene productos"
@@ -62,45 +59,83 @@ def send_tender_service(
 
 
     if total > tender.budget:
-
         raise HTTPException(
             status_code=400,
             detail="El total supera el presupuesto"
         )
 
 
-    old_status = tender.status
+    # Buscar el usuario autenticado en la base de datos
+    db_user = db.query(models.User).filter(
+        models.User.email == current_user["email"]
+    ).first()
 
+
+    old_status = tender.status
     tender.status = "activa"
 
 
     history = models.StatusHistory(
         tender_id=tender.id,
         old_status=old_status,
-        new_status="activa"
+        new_status="activa",
+        user_id=db_user.id if db_user else None
     )
 
 
     db.add(history)
 
 
-    send_email(
-    tender.client.email,
-    "Licitación enviada",
-    f"""
+    # Crear resumen de productos para el correo
+    products_html = ""
+
+    for item in products:
+
+        product = db.query(models.Product).filter(
+            models.Product.id == item.product_id
+        ).first()
+
+        if product:
+            products_html += f"""
+            <li>
+                {product.name} -
+                Cantidad: {item.quantity} -
+                Precio: ${item.price}
+            </li>
+            """
+
+
+    message = f"""
     La licitación <b>{tender.title}</b> fue enviada correctamente.
 
-    <br>
+    <br><br>
 
-    Presupuesto:
+    <b>Productos:</b>
+
+    <ul>
+        {products_html}
+    </ul>
+
+    <b>Presupuesto máximo:</b>
     ${tender.budget}
 
     <br>
 
-    Fecha límite:
+    <b>Total de productos:</b>
+    ${total}
+
+    <br>
+
+    <b>Fecha límite:</b>
     {tender.deadline}
-    """,
-    tender.proposal_url
+    """
+
+
+    send_email(
+        tender.client.email,
+        "Licitación enviada",
+        message,
+        tender.proposal_url
     )
 
 
