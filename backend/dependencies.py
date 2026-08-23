@@ -1,21 +1,48 @@
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import HTTPException
+import os
 
-from jose import jwt, JWTError
+from dotenv import load_dotenv
 
-from services.auth_service import (
-    SECRET_KEY,
-    ALGORITHM
+from fastapi import (
+    Depends,
+    HTTPException,
+    status
 )
+
+from fastapi.security import (
+    HTTPAuthorizationCredentials,
+    HTTPBearer
+)
+
+from jose import (
+    JWTError,
+    jwt
+)
+
+
+load_dotenv()
+
+
+SECRET_KEY = os.getenv(
+    "SECRET_KEY"
+)
+
+ALGORITHM = "HS256"
+
+
+if not SECRET_KEY:
+
+    raise RuntimeError(
+        "La variable SECRET_KEY no está configurada"
+    )
 
 
 security = HTTPBearer()
 
 
-
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials:
+        HTTPAuthorizationCredentials
+        = Depends(security)
 ):
 
     token = credentials.credentials
@@ -26,18 +53,29 @@ def get_current_user(
         payload = jwt.decode(
             token,
             SECRET_KEY,
-            algorithms=[ALGORITHM]
+            algorithms=[
+                ALGORITHM
+            ]
         )
 
 
-        email = payload.get("sub")
-        role = payload.get("role")
+        email = payload.get(
+            "sub"
+        )
 
 
-        if not email:
+        role = payload.get(
+            "role"
+        )
+
+
+        if not email or not role:
+
             raise HTTPException(
-                status_code=401,
-                detail="Token inválido"
+                status_code=
+                    status.HTTP_401_UNAUTHORIZED,
+                detail=
+                    "Token inválido"
             )
 
 
@@ -50,22 +88,35 @@ def get_current_user(
     except JWTError:
 
         raise HTTPException(
-            status_code=401,
-            detail="Token inválido"
+            status_code=
+                status.HTTP_401_UNAUTHORIZED,
+            detail=
+                "Token inválido o expirado"
         )
 
-def require_role(allowed_roles):
+
+def require_role(
+    allowed_roles: list[str]
+):
 
     def role_checker(
-        current_user = Depends(get_current_user)
+        current_user=Depends(
+            get_current_user
+        )
     ):
 
-        if current_user["role"] not in allowed_roles:
+        if (
+            current_user["role"]
+            not in allowed_roles
+        ):
 
             raise HTTPException(
-                status_code=403,
-                detail="No tienes permisos suficientes"
+                status_code=
+                    status.HTTP_403_FORBIDDEN,
+                detail=
+                    "No tienes permisos para realizar esta acción"
             )
+
 
         return current_user
 

@@ -5,7 +5,6 @@ from services.tender_service import send_tender_service
 from services.file_service import save_file
 
 from dependencies import require_role
-
 from database import SessionLocal
 
 import models
@@ -17,6 +16,10 @@ router = APIRouter(
     tags=["Tenders"]
 )
 
+
+# =========================================================
+# BASE DE DATOS
+# =========================================================
 
 def get_db():
 
@@ -39,8 +42,10 @@ def get_db_user(
     ).first()
 
 
+# =========================================================
+# CREAR LICITACIÓN
+# =========================================================
 
-# Crear licitación
 @router.post(
     "/",
     response_model=schemas.TenderResponse
@@ -81,8 +86,10 @@ def create_tender(
     return new_tender
 
 
+# =========================================================
+# OBTENER LICITACIONES
+# =========================================================
 
-# Obtener licitaciones
 @router.get(
     "/",
     response_model=list[schemas.TenderResponse]
@@ -99,8 +106,10 @@ def get_tenders(
     ).all()
 
 
+# =========================================================
+# OBTENER DETALLE DE LICITACIÓN
+# =========================================================
 
-# Obtener detalle
 @router.get(
     "/{tender_id}",
     response_model=schemas.TenderDetailResponse
@@ -126,11 +135,119 @@ def get_tender_detail(
         )
 
 
-    return tender
+    # -----------------------------------------------------
+    # PRODUCTOS DE LA LICITACIÓN
+    # -----------------------------------------------------
+    #
+    # No usamos directamente tender.products porque
+    # necesitamos obtener también quantity y price
+    # guardados en la tabla intermedia tender_products.
+    # -----------------------------------------------------
+
+    tender_product_rows = db.execute(
+        models.tender_products.select().where(
+            models.tender_products.c.tender_id == tender_id
+        )
+    ).fetchall()
 
 
+    products = []
 
-# Agregar producto
+
+    for item in tender_product_rows:
+
+        product = db.query(
+            models.Product
+        ).filter(
+            models.Product.id == item.product_id
+        ).first()
+
+
+        if product:
+
+            products.append({
+                "id": product.id,
+                "name": product.name,
+                "description": product.description,
+                "quantity": item.quantity,
+                "price": item.price
+            })
+
+
+    # -----------------------------------------------------
+    # HISTORIAL DE ESTADOS
+    # -----------------------------------------------------
+
+    history_records = db.query(
+        models.StatusHistory
+    ).filter(
+        models.StatusHistory.tender_id == tender_id
+    ).order_by(
+        models.StatusHistory.created_at.asc()
+    ).all()
+
+
+    history = []
+
+
+    for record in history_records:
+
+        user_email = "Sistema"
+
+
+        if record.user_id is not None:
+
+            user = db.query(
+                models.User
+            ).filter(
+                models.User.id == record.user_id
+            ).first()
+
+
+            if user:
+                user_email = user.email
+
+
+        history.append({
+            "id": record.id,
+            "old_status": record.old_status,
+            "new_status": record.new_status,
+            "user_id": record.user_id,
+            "user_email": user_email,
+            "created_at": record.created_at
+        })
+
+
+    # -----------------------------------------------------
+    # RESPUESTA COMPLETA
+    # -----------------------------------------------------
+
+    return {
+        "id": tender.id,
+        "title": tender.title,
+        "description": tender.description,
+        "budget": tender.budget,
+        "deadline": tender.deadline,
+        "status": tender.status,
+        "proposal_url": tender.proposal_url,
+
+        "client": {
+            "id": tender.client.id,
+            "name": tender.client.name,
+            "company": tender.client.company,
+            "email": tender.client.email
+        },
+
+        "products": products,
+
+        "history": history
+    }
+
+
+# =========================================================
+# AGREGAR PRODUCTO
+# =========================================================
+
 @router.post(
     "/{tender_id}/products"
 )
@@ -265,8 +382,10 @@ def add_product_to_tender(
     }
 
 
+# =========================================================
+# QUITAR PRODUCTO
+# =========================================================
 
-# Quitar producto
 @router.delete(
     "/{tender_id}/products/{product_id}"
 )
@@ -346,8 +465,10 @@ def remove_product_from_tender(
     }
 
 
+# =========================================================
+# CAMBIAR ESTADO
+# =========================================================
 
-# Cambiar estado
 @router.patch(
     "/{tender_id}/status"
 )
@@ -441,8 +562,10 @@ def change_status(
     }
 
 
+# =========================================================
+# ENVIAR LICITACIÓN
+# =========================================================
 
-# Enviar licitación
 @router.post(
     "/{tender_id}/send"
 )
@@ -461,8 +584,10 @@ def send_tender(
     )
 
 
+# =========================================================
+# SUBIR PROPUESTA PDF
+# =========================================================
 
-# Subir propuesta PDF
 @router.post(
     "/{tender_id}/proposal"
 )

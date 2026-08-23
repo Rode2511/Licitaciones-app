@@ -1,10 +1,31 @@
-from passlib.context import CryptContext
+import os
+
+from datetime import datetime, timedelta, timezone
+
+from dotenv import load_dotenv
 from jose import jwt
-from datetime import datetime, timedelta
+from passlib.context import CryptContext
 
 
-SECRET_KEY = "clave-super-secreta-cambiar"
+load_dotenv()
+
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+
 ALGORITHM = "HS256"
+
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv(
+        "ACCESS_TOKEN_EXPIRE_MINUTES",
+        "120"
+    )
+)
+
+
+if not SECRET_KEY:
+    raise RuntimeError(
+        "La variable SECRET_KEY no está configurada"
+    )
 
 
 pwd_context = CryptContext(
@@ -13,15 +34,18 @@ pwd_context = CryptContext(
 )
 
 
-def hash_password(password: str):
+def hash_password(
+    password: str
+):
 
-    return pwd_context.hash(password)
-
+    return pwd_context.hash(
+        password
+    )
 
 
 def verify_password(
-    plain_password,
-    hashed_password
+    plain_password: str,
+    hashed_password: str
 ):
 
     return pwd_context.verify(
@@ -30,14 +54,31 @@ def verify_password(
     )
 
 
-
-def create_access_token(data: dict):
+def create_access_token(
+    data: dict,
+    expires_delta: timedelta | None = None
+):
 
     to_encode = data.copy()
 
-    expire = datetime.utcnow() + timedelta(
-        minutes=60
-    )
+
+    if expires_delta:
+
+        expire = (
+            datetime.now(timezone.utc)
+            + expires_delta
+        )
+
+    else:
+
+        expire = (
+            datetime.now(timezone.utc)
+            + timedelta(
+                minutes=
+                ACCESS_TOKEN_EXPIRE_MINUTES
+            )
+        )
+
 
     to_encode.update(
         {
